@@ -28,6 +28,8 @@
 #include <activemq/transport/TransportListener.h>
 #include <../Rosco/BuildDependencies/amq/decaf/util/Date.h>
 
+#include <signal.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
@@ -41,10 +43,11 @@ using namespace cms;
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
-class cAMQProducer : public Runnable
+class cAMQProducer : public QObject, public Runnable
 {
-private:
+    Q_OBJECT
 
+private:
     Connection* connection;
     Session* session;
     Destination* destination;
@@ -55,12 +58,10 @@ private:
     std::string destURI;
 
 private:
-
     cAMQProducer( const cAMQProducer& );
     cAMQProducer& operator= ( const cAMQProducer& );
 
 public:
-
     cAMQProducer( const std::string& brokerURI, const std::string& destURI, bool useTopic = false, bool clientAck = false ) :
         connection(NULL),
         session(NULL),
@@ -69,21 +70,31 @@ public:
         useTopic(useTopic),
         clientAck(clientAck),
         brokerURI(brokerURI),
-        destURI(destURI) { }
+        destURI(destURI)
+    { }
 
     virtual ~cAMQProducer()
     {
         cleanup();
     }
-    bool sessionTransacted = false;
 
+    bool sessionTransacted = false;
     std::string SendMessage = "";
     int ProducerReady = 0;
+    string threadIdStr;
 
     void close()
     {
         this->cleanup();
     }
+
+public slots:
+    void onMessage(string SendMessage, string threadIdStr);
+
+signals:
+    void MessToSendSig(string SendMessage, string threadIdStr);
+    void SendErrorSig();
+
 private:
     virtual void run();
     void cleanup();
@@ -91,12 +102,17 @@ private:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class cAMQConsumer : public ExceptionListener,
+class cAMQConsumer : public QObject,
+                     public ExceptionListener,
                      public MessageListener,
                      public Runnable
-{
-private:
 
+{
+    Q_OBJECT
+    //Q_PROPERTY(Priority priority READ priority WRITE setPriority)
+    //Q_ENUMS(Priority)
+
+private:
     Connection* connection;
     Session* session;
     Destination* destination;
@@ -107,12 +123,10 @@ private:
     bool clientAck;
 
 private:
-
     cAMQConsumer(const cAMQConsumer&);
     cAMQConsumer& operator=(const cAMQConsumer&);
 
 public:
-
     cAMQConsumer(const std::string& brokerURI,
                  const std::string& destURI,
                  bool useTopic = false,
@@ -124,7 +138,8 @@ public:
         useTopic(useTopic),
         brokerURI(brokerURI),
         destURI(destURI),
-        clientAck(clientAck) { }
+        clientAck(clientAck)
+    { }
 
     virtual ~cAMQConsumer()
     {
@@ -141,9 +156,6 @@ public:
 
     string ReceiveText = "";
 
-   // Called from the consumer since this class is a registered MessageListener.
-    virtual void onMessage(const Message* message);
-
     // If something bad happens you see it here as this class is also been
     // registered as an ExceptionListener with the connection.
 
@@ -154,6 +166,14 @@ public:
     virtual void transportInterrupted();
 
     virtual void transportResumed();
+
+    // Called from the consumer since this class is a registered MessageListener.
+
+    void onMessage(const Message* message);
+
+
+signals:
+    void ReceivErrorSig();
 
 private:
     virtual void run();

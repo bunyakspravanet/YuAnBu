@@ -76,15 +76,19 @@ int main(int argc, char *argv[])
     Thread cProducerThread(&cProducer);
     cProducerThread.start();
 
+    while (cProducer.ProducerReady == 0) cout << "-";
+    cout << endl;
+
  //   QBson recmsq;
  //   QBson sendmsq;
 
     for (int i=0; i<10; i++)
     {
-        while (cProducer.SendMessage.size() > 0);
-        cProducer.SendMessage = "Test Message" + to_string(i) + " in thread ";
+        cout << "try to send\n";
+        cProducer.SendMessage = "Test Message " + to_string(i) + " in thread ";
+        emit cProducer.MessToSendSig(cProducer.SendMessage, cProducer.threadIdStr);
 
-        while (cConsumer.ReceiveText.size() == 0);
+        while (cConsumer.ReceiveText.size() == 0); // cout << "@"; cout << endl;
         cout << "Is received: " << cConsumer.ReceiveText.c_str() << endl;
         cConsumer.ReceiveText = "";
     }

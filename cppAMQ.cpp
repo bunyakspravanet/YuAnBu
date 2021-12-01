@@ -1,9 +1,38 @@
 #include "cppAMQ.h"
 
+void cAMQProducer::onMessage(string SendMessage, string threadIdStr)
+{
+     if (SendMessage.size() > 0 && ProducerReady > 0)
+     {
+        SendMessage += threadIdStr;
+
+        // message send
+        TextMessage* message = session->createTextMessage( SendMessage );
+
+//            message->setIntProperty( "Integer", i );
+
+        // Tell the producer to send the message
+        try
+        {
+            producer->send(message);
+
+            cout << "\nSent message- " << SendMessage.c_str() << endl;
+            SendMessage = "";
+            delete message;
+        }
+        catch ( CMSException& e )
+        {
+            e.printStackTrace();
+        }
+     }
+}
+
 void cAMQProducer::run()
 {
     try
     {
+        connect(this, &cAMQProducer::MessToSendSig, this, &cAMQProducer::onMessage, Qt::DirectConnection);
+
         // Create a ConnectionFactory
         auto_ptr<ActiveMQConnectionFactory> connectionFactory(
             new ActiveMQConnectionFactory( brokerURI ) );
@@ -57,36 +86,8 @@ void cAMQProducer::run()
         ProducerReady = 1;
 
 // Create the Thread Id String
-        string threadIdStr = Long::toString( Thread::currentThread()->getId() );
-
-        while(ProducerReady > 0)
-        {
-            // Create a messages
-            if (SendMessage.size() > 0)
-            {
-                SendMessage += threadIdStr;
-
-                // message send
-                TextMessage* message = session->createTextMessage( SendMessage );
-
-        //            message->setIntProperty( "Integer", i );
-
-                // Tell the producer to send the message
-                try
-                {
-                    producer->send(message);
-
-                    cout << "\nSent message- " << SendMessage.c_str() << endl;
-                    SendMessage = "";
-                    delete message;
-                }
-                catch ( CMSException& e )
-                {
-                    e.printStackTrace();
-                }
-             }
-        }
-    }
+        threadIdStr = Long::toString( Thread::currentThread()->getId() );
+     }
     catch ( CMSException& e )
     {
         e.printStackTrace();
